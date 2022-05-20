@@ -3,19 +3,19 @@
 #include <stdio.h>
 #include <vector>
 #include <thread>
+#include<unistd.h>
 #define K 3
 #define MSG_SIZE 1
 
-// test push
 using namespace std;
 
-struct mess {
+typedef struct mess {
   char position = 'L';
   int channel = 0;
   int status = 0;
   int T = 0;
   int rank = -1;
-};
+} mess;
 
 struct mess_processTO {
   int rank;
@@ -35,35 +35,6 @@ struct mess_channel_out {
   int rank;
 };
 
-// struct 
-// void communication_thread(){
-
-//       while(true){
-
-//         if(position == "L"){
-
-//             printf("p: %d , pos: %c", rank, position);
-
-//         };
-
-//         if(position == "W"){
-
-//         };
-
-//         if(position == "K"){
-          
-//         };
-
-
-//       };
-
-//   }
-
-//   void critical_section_thread(){
-
-//   };
-
-
 int main(int argc, char **argv) {
   
   int rank, size;
@@ -82,13 +53,29 @@ int main(int argc, char **argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &size);
   MPI_Get_processor_name(processor_name, &namelen);
 
-  mess process_mess;
-  process_mess.position = 'L';
-  process_mess.channel = 0;
-  process_mess.status = 0;
-  process_mess.T = 0;
-  process_mess.rank = rank;
+  MPI_Request request;
 
+  const int nitems=5;
+    int          blocklengths[5] = {1,1,1,1,1};
+    MPI_Datatype types[5] = {MPI_CHAR, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+    MPI_Datatype message;
+    MPI_Aint     offsets[5];
+
+    offsets[0] = offsetof(mess, position);
+    offsets[1] = offsetof(mess, channel);
+    offsets[2] = offsetof(mess, status);
+    offsets[3] = offsetof(mess, T);
+    offsets[4] = offsetof(mess, rank);
+
+    MPI_Type_create_struct(nitems, blocklengths, offsets, types, &message);
+    MPI_Type_commit(&message);
+
+    mess process_mess;
+    process_mess.position = 'L';
+    process_mess.channel = 0;
+    process_mess.status = 0;
+    process_mess.T = 0;
+    process_mess.rank = rank;
 
   //losowanie kanału
   channel = rand()% K + 1;
@@ -96,16 +83,24 @@ int main(int argc, char **argv) {
 while(true){
 
         if(position == 'L'){
-            printf("p: %d , pos: %c", rank, position);
+            // printf("p: %d , pos: %c", rank, position);
+            srand(time(0));
+            sleep(rand() % 3 + 1);
+            MPI_Irecv(&process_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
+              2, MPI_COMM_WORLD, &request);
+            printf("rank: %d status: %d\n", rank, process_mess.status); // docelowo do wywalenia
+            position = 'W';
         };
 
         if(position == 'W'){
-          for(int i=0; i <3; i++){
+
+          for(int i=0; i<3; i++){
               if(rank != i){
-                MPI_Send( process_mess, MSG_SIZE, MPI_ANY_SOURCE, i, 2, MPI_COMM_WORLD);
+                process_mess.status = rank; // to tylko do przetestowania, docelowo do wywalenia
+                MPI_Send(&process_mess, MSG_SIZE, message, i, 2, MPI_COMM_WORLD);
               }
             }
-
+          position = 'L'; // docelowo do wywalenia
         };
 
         if(position == 'K'){
