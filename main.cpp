@@ -80,6 +80,12 @@ int main(int argc, char **argv) {
     mess recv_mess;
 
     bool isPositionChanged = 0;
+    
+    int zgoda = 0;
+//tagi
+//1: mess
+//2: zgoda
+//3: 
 
 while(true){
 
@@ -87,9 +93,12 @@ while(true){
             srand(time(0));
             sleep(rand() % 8 + 2);
             MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
-              2, MPI_COMM_WORLD, &request);
-            if(recv_mess.rank != -1) {
+              1, MPI_COMM_WORLD, &request);
+            if(recv_mess.rank != -1 && recv_mess.position == 'W') {
               printf("recv -> rank : %d orzymal od %d w sekcji %c\n", rank, recv_mess.rank, process_mess.position);
+              zgoda = 1;
+              MPI_Send(&zgoda, 1, MPI_INT, recv_mess.rank, 2, MPI_COMM_WORLD );
+              zgoda = 0;
               recv_mess.rank = -1;
             }
             position = 'W';
@@ -106,21 +115,47 @@ while(true){
 
             for(int i=0; i<3; i++){
               if(rank != i){
-                MPI_Send(&process_mess, MSG_SIZE, message, i, 2, MPI_COMM_WORLD);
+                MPI_Send(&process_mess, MSG_SIZE, message, i, 1, MPI_COMM_WORLD);
               }
             }
             isPositionChanged = false;
           }
+          while(responseCounter != K-1) {
+            //TODO zsynchronizuj czas
 
-          MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
-              2, MPI_COMM_WORLD, &request);
-              if(recv_mess.rank != -1) {
-                responseCounter++;
-                printf("recv -> rank : %d orzymal od %d w sekcji %c\n", rank, recv_mess.rank, process_mess.position);
-                recv_mess.rank = -1;
+            //czekanie na odpowiedzi/zgody od procesów
+            MPI_Irecv(&zgoda, 1, MPI_INT, MPI_ANY_SOURCE,
+                2, MPI_COMM_WORLD, &request);
+            if(zgoda == 1) {
+              responseCounter++;
+              //printf("recv -> rank : %d orzymal od %d w sekcji %c\n", rank, recv_mess.rank, process_mess.position);
+              zgoda = 0;
+            }
+            //czekanie na pytania od procesów
+            //TODO zsynchronizuj czas
+            MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
+              1, MPI_COMM_WORLD, &request);
+            if(recv_mess.rank != -1) {
+              if(recv_mess.position == 'W') {
+                if(recv_mess.channel == channel) {
+                  if(recv_mess.T < T || (recv_mess.T == T && recv_mess.rank < rank)) {
+                    zgoda = 1;
+                    MPI_Send(&zgoda, 1, MPI_INT, recv_mess.rank, 2, MPI_COMM_WORLD );
+                    zgoda = 0;
+                  } else {
+                    //dodaj proces do TO
+                  }  
+                } else {
+                  zgoda = 1;
+                  MPI_Send(&zgoda, 1, MPI_INT, recv_mess.rank, 2, MPI_COMM_WORLD );
+                  zgoda = 0;
+                }
               }
-
-          
+              recv_mess.rank = -1;
+            }
+            //TODO obsługa MESS_KANAL_IN, MESS_KANAL_OUT
+          }
+          position = K;
         };
 
         if(position == 'K'){
