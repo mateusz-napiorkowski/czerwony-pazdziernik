@@ -82,10 +82,13 @@ int main(int argc, char **argv) {
     bool isPositionChanged = 0;
     
     int zgoda = 0;
+    int process_to_add = -1;
+    int process_to_remove = -1;
 //tagi
 //1: mess
 //2: zgoda
-//3: 
+//3: mess_kanal_in
+//4: mess_kanal_out
 
 while(true){
 
@@ -143,7 +146,7 @@ while(true){
                     MPI_Send(&zgoda, 1, MPI_INT, recv_mess.rank, 2, MPI_COMM_WORLD );
                     zgoda = 0;
                   } else {
-                    //dodaj proces do TO
+                    //TODO dodaj proces do TO
                   }  
                 } else {
                   zgoda = 1;
@@ -153,7 +156,19 @@ while(true){
               }
               recv_mess.rank = -1;
             }
-            //TODO obsługa MESS_KANAL_IN, MESS_KANAL_OUT
+            MPI_Irecv(&process_to_add, 1, MPI_INT, MPI_ANY_SOURCE,
+                3, MPI_COMM_WORLD, &request);
+            if(process_to_add != -1) {
+              //TODO dodaj proces do tablicy procesow sekcji krytycznej
+              process_to_add = -1;
+            }
+            MPI_Irecv(&process_to_remove, 1, MPI_INT, MPI_ANY_SOURCE,
+                4, MPI_COMM_WORLD, &request);
+            if(process_to_remove != -1) {
+              //TODO usun proces z tablicy procesow sekcji krytycznej
+              process_to_remove = -1;
+            }
+
           }
           position = K;
         };
