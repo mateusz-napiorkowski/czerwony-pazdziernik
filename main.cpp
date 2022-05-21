@@ -6,8 +6,10 @@
 #include <future>
 #include<utility>
 #include<unistd.h>
-#define K 3
+#define K 2
 #define MSG_SIZE 1
+#define changel_1 1
+#define changel_2 2
 
 using namespace std;
 
@@ -49,11 +51,45 @@ struct general_process_struct {
   vector<mess_tz> TZ;
 };
 
-void communication_thread(promise<int> &obj, general_process_struct process){
-  cout<< "inside thread with rank --> "<< rank << endl;
+void recv_thread(promise<general_process_struct> &obj, general_process_struct process){
+  cout<< "inside thread with rank --> "<< process.rank << " position : " << process.position << endl;
+
+    MPI_Request request;
+
+    const int nitems=5;
+    int          blocklengths[5] = {1,1,1,1,1};
+    MPI_Datatype types[5] = {MPI_CHAR, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+    MPI_Datatype message;
+    MPI_Aint     offsets[5];
+
+    offsets[0] = offsetof(mess, position);
+    offsets[1] = offsetof(mess, channel);
+    offsets[2] = offsetof(mess, status);
+    offsets[3] = offsetof(mess, T);
+    offsets[4] = offsetof(mess, rank);
+
+    MPI_Type_create_struct(nitems, blocklengths, offsets, types, &message);
+    MPI_Type_commit(&message);
+
+    
+
+    mess recv_of_process;
+    int rank_response;
+
+    bool isCompleted = false;
+  //   // MPI_Recv(msg, MSG_SIZE, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    while(!isCompleted){
+      MPI_Irecv(&recv_of_process, MSG_SIZE, message, MPI_ANY_SOURCE,
+              1, MPI_COMM_WORLD, &request);
+      MPI_Irecv(&recv_of_process, MSG_SIZE, message, MPI_ANY_SOURCE,
+              2, MPI_COMM_WORLD, &request);
+            // printf("recv -> rank : %d orzymal od %d ", rank, process_mess.rank);
+      // if(recv_of_process.)
+    }
+  
   
 
-  obj.set_value(rank);
+  // obj.set_value(process);
 
 }
 
@@ -103,47 +139,72 @@ int main(int argc, char **argv) {
 
     bool isPositionChanged = 1;
 
+
+    general_process_struct process_struct;
+    process_struct.rank = rank;
+    process_struct.position = 'L';
+    process_struct.channel = 0;
+    process_struct.status = 0;
+    process_struct.T = 0;
+    process_struct.responseCounter = 0;
+    
+
     promise<general_process_struct> obj;
     future<general_process_struct> futureObj = obj.get_future();
 
-    thread communication(communication_thread, ref(obj), );
+    // 1: mess
+    // 2: zgoda
+    // 3: mess chanel in
+    // 4: mess channel out
+    
 
 while(true){
 
 
         if(position == 'L'){
-            // MPI_Irecv(&process_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
-            //   2, MPI_COMM_WORLD, &request);
+
+          MPI_Irecv(&process_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
+              1, MPI_COMM_WORLD, &request);
             // printf("recv -> rank : %d orzymal od %d ", rank, process_mess.rank);
-            // srand(time(0));
-            // sleep(rand() % 8 + 2);
-            // position = 'W';
-            // isPositionChanged = true;
+          if(process_mess.position == 'W'){
+              cout<< "otrzymalem wiadomosc od : " << process_mess.rank << " position -->  W"<<endl; 
+          }
 
           if(isPositionChanged){
-            communication.join();
-            cout << "rank" << rank << "future return object : " << futureObj.get() << endl;
-          }  
-          
-          isPositionChanged = 0;
+            // recv_response.join();
+            // general_process_struct res;
+            // res = futureObj.get();
+            cout << "rank : " << rank << " position : " << position << endl;
+
+            srand(time(0));
+            sleep(rand() % 6 + 2);
+            position = 'W';
+          } 
         };
 
         if(position == 'W'){
 
 
-          // if(isPositionChanged){
-          //   channel = rand()% K + 1;
+          if(isPositionChanged){
+             cout << "rank" << rank << " position : " << position << endl;
+            channel = rand()% K + 1;
+            cout<<"rank : "<<rank<<" got a channel number : " << channel <<endl;
 
-          //   process_mess.channel = channel;
-          //   process_mess.position = position;
+            process_mess.channel = channel;
+            process_mess.position = position;
 
-          //   for(int i=0; i<3; i++){
-          //     if(rank != i){
-          //       MPI_Send(&process_mess, MSG_SIZE, message, i, 2, MPI_COMM_WORLD);
-          //     }
-          //   }
-          //   isPositionChanged = false;
-          // }
+            for(int i=0; i<3; i++){
+              if(rank != i){
+                MPI_Send(&process_mess, MSG_SIZE, message, i, 1, MPI_COMM_WORLD);
+              }
+              
+            }
+            thread recv_response(recv_thread, ref(obj), process_struct);
+              recv_response.join();
+
+
+            isPositionChanged = false;
+          }
 
           // MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
           //     2, MPI_COMM_WORLD, &request);
@@ -164,7 +225,7 @@ while(true){
   
 
 
-  std::cout << "Jestem " << rank << " z " << size << " na " << processor_name
-            << std::endl;
+  // std::cout << "Jestem " << rank << " z " << size << " na " << processor_name
+  //           << std::endl;
   MPI_Finalize();
 }
