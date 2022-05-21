@@ -77,30 +77,44 @@ int main(int argc, char **argv) {
     process_mess.T = 0;
     process_mess.rank = rank;
 
-  //losowanie kanału
-  channel = rand()% K + 1;
+    mess recv_mess;
+
+    bool isPositionChanged = 0;
 
 while(true){
 
         if(position == 'L'){
-            // printf("p: %d , pos: %c", rank, position);
-            srand(time(0));
-            sleep(rand() % 3 + 1);
             MPI_Irecv(&process_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
               2, MPI_COMM_WORLD, &request);
-            printf("rank: %d status: %d\n", rank, process_mess.status); // docelowo do wywalenia
+            printf("recv -> rank : %d orzymal od %d ", rank, process_mess.rank);
+            srand(time(0));
+            sleep(rand() % 8 + 2);
             position = 'W';
+            isPositionChanged = true;
         };
 
         if(position == 'W'){
 
-          for(int i=0; i<3; i++){
+          if(isPositionChanged){
+            channel = rand()% K + 1;
+
+            process_mess.channel = channel;
+            process_mess.position = position;
+
+            for(int i=0; i<3; i++){
               if(rank != i){
-                process_mess.status = rank; // to tylko do przetestowania, docelowo do wywalenia
                 MPI_Send(&process_mess, MSG_SIZE, message, i, 2, MPI_COMM_WORLD);
               }
             }
-          position = 'L'; // docelowo do wywalenia
+            isPositionChanged = false;
+          }
+
+          MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
+              2, MPI_COMM_WORLD, &request);
+              if(recv_mess.rank){
+                  printf("recv -> rank : %d orzymal od %d ", rank, process_mess.rank);
+              }
+          
         };
 
         if(position == 'K'){
