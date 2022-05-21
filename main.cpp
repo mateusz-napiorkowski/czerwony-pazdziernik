@@ -94,7 +94,8 @@ while(true){
 
         if(position == 'L'){         
             srand(time(0));
-            sleep(rand() % 8 + 2);
+            sleep(rand() % 3 + 1);
+            cout<<"process rank : "<< rank << " in position " << position << endl;
             MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
               1, MPI_COMM_WORLD, &request);
             if(recv_mess.rank != -1 && recv_mess.position == 'W') {
@@ -115,25 +116,31 @@ while(true){
 
             process_mess.channel = channel;
             process_mess.position = position;
+            cout<<"process rank : "<< rank << " in position " << position << endl;
 
             for(int i=0; i<3; i++){
               if(rank != i){
                 MPI_Send(&process_mess, MSG_SIZE, message, i, 1, MPI_COMM_WORLD);
+                cout<<"[ "<< rank << " ] send to [ " << i << " ]"<< endl;
               }
             }
             isPositionChanged = false;
           }
+
+
+
           while(responseCounter != K-1) {
             //TODO zsynchronizuj czas
 
             //czekanie na odpowiedzi/zgody od procesów
-            MPI_Irecv(&zgoda, 1, MPI_INT, MPI_ANY_SOURCE,
-                2, MPI_COMM_WORLD, &request);
-            if(zgoda == 1) {
-              responseCounter++;
-              //printf("recv -> rank : %d orzymal od %d w sekcji %c\n", rank, recv_mess.rank, process_mess.position);
-              zgoda = 0;
-            }
+            // MPI_Irecv(&zgoda, 1, MPI_INT, MPI_ANY_SOURCE,
+            //     2, MPI_COMM_WORLD, &request);
+            // if(zgoda == 1) {
+            //   responseCounter++;
+            //   cout<< "proces rank : "<<rank<<" got agreement from process "<< endl;
+            //   cout<< "counter " << responseCounter<<endl;
+            //   zgoda = 0;
+            // }
             //czekanie na pytania od procesów
             //TODO zsynchronizuj czas
             MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
@@ -156,21 +163,24 @@ while(true){
               }
               recv_mess.rank = -1;
             }
-            MPI_Irecv(&process_to_add, 1, MPI_INT, MPI_ANY_SOURCE,
-                3, MPI_COMM_WORLD, &request);
-            if(process_to_add != -1) {
-              //TODO dodaj proces do tablicy procesow sekcji krytycznej
-              process_to_add = -1;
-            }
-            MPI_Irecv(&process_to_remove, 1, MPI_INT, MPI_ANY_SOURCE,
-                4, MPI_COMM_WORLD, &request);
-            if(process_to_remove != -1) {
-              //TODO usun proces z tablicy procesow sekcji krytycznej
-              process_to_remove = -1;
-            }
+            // MPI_Irecv(&process_to_add, 1, MPI_INT, MPI_ANY_SOURCE,
+            //     3, MPI_COMM_WORLD, &request);
+            // if(process_to_add != -1) {
+            //   //TODO dodaj proces do tablicy procesow sekcji krytycznej
+            //   process_to_add = -1;
+            // }
+            // MPI_Irecv(&process_to_remove, 1, MPI_INT, MPI_ANY_SOURCE,
+            //     4, MPI_COMM_WORLD, &request);
+            // if(process_to_remove != -1) {
+            //   //TODO usun proces z tablicy procesow sekcji krytycznej
+            //   process_to_remove = -1;
+            // }
 
           }
-          position = K;
+          // position = K;
+
+
+
         };
 
         if(position == 'K'){
