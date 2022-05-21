@@ -83,12 +83,15 @@ int main(int argc, char **argv) {
 
 while(true){
 
-        if(position == 'L'){
-            MPI_Irecv(&process_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
-              2, MPI_COMM_WORLD, &request);
-            printf("recv -> rank : %d orzymal od %d ", rank, process_mess.rank);
+        if(position == 'L'){         
             srand(time(0));
             sleep(rand() % 8 + 2);
+            MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
+              2, MPI_COMM_WORLD, &request);
+            if(recv_mess.rank != -1) {
+              printf("recv -> rank : %d orzymal od %d w sekcji %c\n", rank, recv_mess.rank, process_mess.position);
+              recv_mess.rank = -1;
+            }
             position = 'W';
             isPositionChanged = true;
         };
@@ -111,9 +114,12 @@ while(true){
 
           MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
               2, MPI_COMM_WORLD, &request);
-              if(recv_mess.rank){
-                  printf("recv -> rank : %d orzymal od %d ", rank, process_mess.rank);
+              if(recv_mess.rank != -1) {
+                responseCounter++;
+                printf("recv -> rank : %d orzymal od %d w sekcji %c\n", rank, recv_mess.rank, process_mess.position);
+                recv_mess.rank = -1;
               }
+
           
         };
 
