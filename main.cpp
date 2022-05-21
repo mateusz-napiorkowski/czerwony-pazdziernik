@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <vector>
 #include <thread>
+#include <future>
+#include<utility>
 #include<unistd.h>
 #define K 3
 #define MSG_SIZE 1
@@ -34,6 +36,26 @@ struct mess_channel_in {
 struct mess_channel_out {
   int rank;
 };
+
+struct general_process_struct { 
+  int rank;
+  char position;
+  int channel;
+  int status;
+  int T;
+  int responseCounter;
+  vector<mess_channel_in> kryt_tab;
+  vector<mess_processTO> TO;
+  vector<mess_tz> TZ;
+};
+
+void communication_thread(promise<int> &obj, general_process_struct process){
+  cout<< "inside thread with rank --> "<< rank << endl;
+  
+
+  obj.set_value(rank);
+
+}
 
 int main(int argc, char **argv) {
   
@@ -79,48 +101,52 @@ int main(int argc, char **argv) {
 
     mess recv_mess;
 
-    bool isPositionChanged = 0;
+    bool isPositionChanged = 1;
+
+    promise<general_process_struct> obj;
+    future<general_process_struct> futureObj = obj.get_future();
+
+    thread communication(communication_thread, ref(obj), );
 
 while(true){
 
-        if(position == 'L'){         
-            srand(time(0));
-            sleep(rand() % 8 + 2);
-            MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
-              2, MPI_COMM_WORLD, &request);
-            if(recv_mess.rank != -1) {
-              printf("recv -> rank : %d orzymal od %d w sekcji %c\n", rank, recv_mess.rank, process_mess.position);
-              recv_mess.rank = -1;
-            }
-            position = 'W';
-            isPositionChanged = true;
+
+        if(position == 'L'){
+            // MPI_Irecv(&process_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
+            //   2, MPI_COMM_WORLD, &request);
+            // printf("recv -> rank : %d orzymal od %d ", rank, process_mess.rank);
+            // srand(time(0));
+            // sleep(rand() % 8 + 2);
+            // position = 'W';
+            // isPositionChanged = true;
+
+          if(isPositionChanged){
+            communication.join();
+            cout << "rank" << rank << "future return object : " << futureObj.get() << endl;
+          }  
+          
+          isPositionChanged = 0;
         };
 
         if(position == 'W'){
 
-          if(isPositionChanged){
-            channel = rand()% K + 1;
 
-            process_mess.channel = channel;
-            process_mess.position = position;
+          // if(isPositionChanged){
+          //   channel = rand()% K + 1;
 
-            for(int i=0; i<3; i++){
-              if(rank != i){
-                MPI_Send(&process_mess, MSG_SIZE, message, i, 2, MPI_COMM_WORLD);
-              }
-            }
-            isPositionChanged = false;
-          }
+          //   process_mess.channel = channel;
+          //   process_mess.position = position;
 
-          MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
-              2, MPI_COMM_WORLD, &request);
-              if(recv_mess.rank != -1) {
-                responseCounter++;
-                printf("recv -> rank : %d orzymal od %d w sekcji %c\n", rank, recv_mess.rank, process_mess.position);
-                recv_mess.rank = -1;
-              }
+          //   for(int i=0; i<3; i++){
+          //     if(rank != i){
+          //       MPI_Send(&process_mess, MSG_SIZE, message, i, 2, MPI_COMM_WORLD);
+          //     }
+          //   }
+          //   isPositionChanged = false;
+          // }
 
-          
+          // MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
+          //     2, MPI_COMM_WORLD, &request);
         };
 
         if(position == 'K'){
