@@ -143,20 +143,25 @@ int main(int argc, char **argv) {
                 if(recv_mess.T < T || (recv_mess.T == T && recv_mess.rank < rank)) {
                   process_mess.messType = 2;
                   MPI_Send(&process_mess, MSG_SIZE, message, recv_mess.rank, 1, MPI_COMM_WORLD);
-                } else {
+                }
+                else {
                   //dodaj proces do TO
                 }
-              } else {
+              } 
+              else {
                 process_mess.messType = 2;
                 MPI_Send(&process_mess, MSG_SIZE, message, recv_mess.rank, 1, MPI_COMM_WORLD);
               }
-            } else if(recv_mess.messType == 2) {
+            }
+            else if(recv_mess.messType == 2) {
               printf("%d got mess type %d from %d\n", rank, recv_mess.messType, recv_mess.rank);
               responseCounter++;
               printf("Rank: %d, responses: %d\n", rank, responseCounter);
-            } else if(recv_mess.messType == 3) {
+            }
+            else if(recv_mess.messType == 3) {
               // dodaj proces do tablicy procesów sekcji krytycznej
-            } else if(recv_mess.messType == 4) {
+            }
+            else if(recv_mess.messType == 4) {
               // usun proces z tablicy procesów sekcji krytycznej
             }
           }
