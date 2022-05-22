@@ -8,10 +8,10 @@
 #include<utility>
 #include<unistd.h>
 #define K 2
-#define PROCESS_COUNT 3
+#define PROCESS_COUNT 2
 #define MSG_SIZE 1
 
-int array[K] = {1,2};
+int array[K] = {1,1};
 
 using namespace std;
 
@@ -67,7 +67,7 @@ typedef struct returnedMess {
     process_mess.T = process->T;
     for(int i=0; i<PROCESS_COUNT; i++){
       if(process->rank != i){
-        cout<<"rank : "<<process->rank<<" is sending request to "<< i << endl;
+        cout<<"rank : "<<process->rank<<" is sending request to "<< i <<" with tag "<<status<<endl;
         MPI_Send(&process_mess, sizeOfMess(), MPI_INT, i, status, MPI_COMM_WORLD);
       }
       
@@ -125,7 +125,7 @@ typedef struct returnedMess {
 
       };
       if(recv_message.message_status.MPI_TAG == 1){
-          cout<<"rank : "<<process->rank<<"increment responseCounter"<<endl;
+          cout<<"rank : "<<process->rank<<" increment responseCounter"<<endl;
           process->responseCounter++;
       };
       if(recv_message.message_status.MPI_TAG == 2){
@@ -133,7 +133,7 @@ typedef struct returnedMess {
           process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
       };
       if(recv_message.message_status.MPI_TAG == 3){
-          cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+          cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
           process->kryt_tab[recv_message.message.rank] = 0;
       };
 
@@ -151,7 +151,7 @@ typedef struct returnedMess {
       if(process->position == 'L'){
           if(process->position != savedPosition){
             savedPosition = process->position;
-            cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;
+            cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<" with status : " << process->status <<endl;
             sleep(5);
             process->position = 'W';
           }
@@ -180,9 +180,15 @@ typedef struct returnedMess {
       if( process->position == 'K'){
         if(process->position != savedPosition){
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;
+            process->responseCounter = 0;
             sleep(5);
             sendRequestToAll(process, 2);
-
+            sleep(5);
+            sendRequestToAll(process, 3);
+            sleep(3);
+            sendRequestToAll(process, 1);
+            process->status = !process->status;
+            process->position = 'L';
             // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
           }
       }
