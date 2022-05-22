@@ -226,7 +226,7 @@ typedef struct returnedMess {
             process->position = 'K';
           }
       }
-      if( process->position == 'K'){
+      if( process->position == 'K' /*&& array[process->channel-1] > 0*/){
         if(process->position != savedPosition){
             // if(array[process-channel-1] > 0) {
             //   for(const auto& r: process->TO) {
