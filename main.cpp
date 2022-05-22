@@ -11,7 +11,7 @@
 #define PROCESS_COUNT 2
 #define MSG_SIZE 1
 
-int array[K] = {1,1};
+int channels[K] = {1,1};
 
 using namespace std;
 
@@ -142,12 +142,12 @@ typedef struct returnedMess {
         if(recv_message.message_status.MPI_TAG == 2){
             cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
             process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
-            // array[recv_message.message.channel-1]--;
+            channels[recv_message.message.channel-1]--;
         };
         if(recv_message.message_status.MPI_TAG == 3){
             cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
             process->kryt_tab[recv_message.message.rank] = 0;
-            // array[recv_message.message.channel-1]++;
+            channels[recv_message.message.channel-1]++;
         };
       }
       if(process->position == 'K') {
@@ -158,7 +158,7 @@ typedef struct returnedMess {
           } else {
             if(recv_message.message.status == process->status) {
               cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
-              sendConfirmationAsReponse(process, recv_message.message.rank); //???
+              sendConfirmationAsReponse(process, recv_message.message.rank);
             } else {
               cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
               process->TO.push_back(recv_message.message.rank);
@@ -172,13 +172,13 @@ typedef struct returnedMess {
             } else {
               cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
               process->kryt_tab[recv_message.message.rank] = 0;
-              // array[recv_message.message.channel-1]++;
+              channels[recv_message.message.channel-1]++;
             }
           }
           if(recv_message.message_status.MPI_TAG == 2){
             cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
             process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
-            // array[recv_message.message.channel-1]--;
+            channels[recv_message.message.channel-1]--;
           };
         }
       }
@@ -211,7 +211,7 @@ typedef struct returnedMess {
             savedPosition = process->position;
             process->channel = rand()%2 + 1;
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;
-            cout<<"rank : "<<process->rank<<"chose channel" << process->channel<<endl;
+            cout<<"rank : "<<process->rank<<" chose channel " << process->channel<<endl;
             sleep(5);
             sendRequestToAll(process, 0);
 
@@ -219,28 +219,28 @@ typedef struct returnedMess {
             // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
           }
 
-          if(process->responseCounter == K-1 /*&& array[process->channel-1] > 0*/){
+          if(process->responseCounter == K-1 && channels[process->channel -1] > 0){
             cout<<"==================================="<<endl;
             cout<<"RANK : "<<process->rank<< " CAN GO TO CRITICAL SECTION"<<endl;
             cout<<"==================================="<<endl;
-            // array[process->channel-1]--;
+            channels[process->channel-1]--;
             process->position = 'K';
           }
       }
       if( process->position == 'K'){
         if(process->position != savedPosition){
-            // process->kryt_tab[process->rank] = process->channel;
-
-            // if(array[process-channel-1] > 0) {
-            //   for(const auto& r: process->TO) {
-            //     std::cout << r << "\n";
-            //     sendConfirmationAsReponse(process, r);
-            //   }
-            // } 
-            cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;       
-            sleep(5);
-            sendRequestToAll(process, 2);
-            sleep(5);
+            savedPosition = process->position;
+            process->kryt_tab[process->rank] = process->channel;
+            sendRequestToAll(process, 2); 
+            if(channels[process->channel-1] > 0) {
+              for(const auto& r: process->TO) {
+                cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
+                sendConfirmationAsReponse(process, r);
+              }
+            } 
+            cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;   
+               
+            sleep(3);
             if(process->position == 'K') {
               exitCriticalSection(process);
             }    
