@@ -126,7 +126,6 @@ int main(int argc, char **argv) {
             process_mess.messType = 1;
             process_mess.channel = channel;
             process_mess.position = position;
-            printf("GOT HERE\n");
             for(int i=0; i<=3; i++){
               if(rank != i){
                 MPI_Send(&process_mess, MSG_SIZE, message, i, 1, MPI_COMM_WORLD);
