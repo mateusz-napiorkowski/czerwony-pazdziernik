@@ -100,6 +100,11 @@ typedef struct returnedMess {
 
   }
 
+  void sendConfirmationAsReponse(int dest_rank){
+      int confirmation = 1;
+      MPI_Send(&confirmation, sizeof(int), MPI_INT, dest_rank, 1, MPI_COMM_WORLD);
+  }
+
   returnedMess getMessage(){
     mess recv_mess;
     returnedMess messageToReturn;
@@ -117,15 +122,25 @@ typedef struct returnedMess {
 
 
   void communicationThread(general_process_struct* process){
-    cout<<"rank : "<<process->rank << " in communication thread"<<endl;
     while(true){
       returnedMess recv_message = getMessage();
       if(recv_message.message_status.MPI_TAG == 0){
         if(recv_message.message.position == 'W'){
           if(recv_message.message.channel == process->channel){
             if(recv_message.message.T < process->T){
-              
+                cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                sendConfirmationAsReponse(recv_message.message.rank);
+            }else if(recv_message.message.T == process->T && recv_message.message.rank < process->rank){
+                cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                sendConfirmationAsReponse(recv_message.message.rank);
+            }else{
+              cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
+              process->TO.push_back(recv_message.message.rank);
             }
+          }
+          if(recv_message.message.channel != process->channel){
+            cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+            sendConfirmationAsReponse(recv_message.message.rank);
           }
         }
 
