@@ -8,10 +8,15 @@
 #include<utility>
 #include<unistd.h>
 #define K 2
-#define PROCESS_COUNT 2
+#define PROCESS_COUNT 3
 #define MSG_SIZE 1
+#define NC "\e[0m"
+#define RED "\e[0;31m"
+#define GRN "\e[0;32m"
+#define CYN "\e[0;36m"
+#define REDB "\e[41m"
 
-int channels[K] = {1,1};
+int channels[K] = {1,2};
 
 using namespace std;
 
@@ -60,6 +65,7 @@ typedef struct returnedMess {
 
   void sendRequestToAll(general_process_struct* process, int status){
     mess process_mess;
+    MPI_Request request;
     process_mess.channel = process->channel;
     process_mess.position = process->position;
     process_mess.rank = process->rank;
@@ -68,7 +74,7 @@ typedef struct returnedMess {
     for(int i=0; i<PROCESS_COUNT; i++){
       if(process->rank != i){
         cout<<"rank : "<<process->rank<<" is sending request to "<< i <<" with tag "<<status<<endl;
-        MPI_Send(&process_mess, sizeOfMess(), MPI_INT, i, status, MPI_COMM_WORLD);
+        MPI_Isend(&process_mess, sizeOfMess(), MPI_INT, i, status, MPI_COMM_WORLD, &request);
       }
       
     }
@@ -92,7 +98,7 @@ typedef struct returnedMess {
 
     MPI_Recv(&recv_mess, sizeOfMess() , MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_status);
 
-    cout<<"rank : "<<process->rank<<" got message recv from : "<<recv_mess.rank <<" with tag " << mpi_status.MPI_TAG<<endl;
+    // cout<<"rank : "<<process->rank<<" got message recv from : "<<recv_mess.rank <<" with tag " << mpi_status.MPI_TAG<<endl;
     messageToReturn.message = recv_mess;
     messageToReturn.message_status = mpi_status;
     return messageToReturn;
@@ -100,13 +106,13 @@ typedef struct returnedMess {
 
   void exitCriticalSection(general_process_struct* process){
     sendRequestToAll(process, 3);
-    sleep(3);
+    sleep(2);
     sendRequestToAll(process, 1);  
     process->status = !process->status;
     process->channel = 0;
     process->position = 'L';
     process->responseCounter = 0;
-    cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
+    // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
 
   }
 
@@ -124,7 +130,7 @@ typedef struct returnedMess {
                   cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
                   sendConfirmationAsReponse(process, recv_message.message.rank);
               }else{
-                cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
+                // cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
                 process->TO.push_back(recv_message.message.rank);
               }
             }
@@ -140,12 +146,12 @@ typedef struct returnedMess {
             process->responseCounter++;
         };
         if(recv_message.message_status.MPI_TAG == 2){
-            cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+            // cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
             process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
             channels[recv_message.message.channel-1]--;
         };
         if(recv_message.message_status.MPI_TAG == 3){
-            cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+            // cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
             process->kryt_tab[recv_message.message.rank] = 0;
             channels[recv_message.message.channel-1]++;
         };
@@ -160,7 +166,7 @@ typedef struct returnedMess {
               cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
               sendConfirmationAsReponse(process, recv_message.message.rank);
             } else {
-              cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
+              // cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
               process->TO.push_back(recv_message.message.rank);
             }
           }
@@ -170,13 +176,13 @@ typedef struct returnedMess {
             if(recv_message.message.channel == process->channel) {
               exitCriticalSection(process);
             } else {
-              cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+              // cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
               process->kryt_tab[recv_message.message.rank] = 0;
               channels[recv_message.message.channel-1]++;
             }
           }
           if(recv_message.message_status.MPI_TAG == 2){
-            cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+            // cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
             process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
             channels[recv_message.message.channel-1]--;
           };
@@ -201,7 +207,7 @@ typedef struct returnedMess {
           if(process->position != savedPosition){
             savedPosition = process->position;
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<" with status : " << process->status <<endl;
-            sleep(5);
+            sleep(rand()%4+2);
             process->position = 'W';
           }
           
@@ -209,20 +215,18 @@ typedef struct returnedMess {
       if( process->position == 'W'){
         if(process->position != savedPosition){
             savedPosition = process->position;
-            process->channel = rand()%2 + 1;
-            cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;
-            cout<<"rank : "<<process->rank<<" chose channel " << process->channel<<endl;
-            sleep(5);
+            sleep(rand()%3+1);
+            process->channel = (((rand()%2+1) + process->rank)%K)+1;
+            cout<<"rank : "<<process->rank<<" is in position : "<<process->position <<" and chose channel " << process->channel<<endl;
+            sleep(2);
             sendRequestToAll(process, 0);
 
 
             // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
           }
 
-          if(process->responseCounter == K-1 && channels[process->channel -1] > 0){
-            cout<<"==================================="<<endl;
-            cout<<"RANK : "<<process->rank<< " CAN GO TO CRITICAL SECTION"<<endl;
-            cout<<"==================================="<<endl;
+          if(process->responseCounter == PROCESS_COUNT-1 && channels[process->channel -1] > 0){
+            cout<<"\033[3;43;30m"<<"RANK : "<<process->rank<< " IS GOING TO CRITICAL SECTION "<<"\033[0m\t\t"<<endl;
             channels[process->channel-1]--;
             process->position = 'K';
           }
@@ -234,13 +238,13 @@ typedef struct returnedMess {
             sendRequestToAll(process, 2); 
             if(channels[process->channel-1] > 0) {
               for(const auto& r: process->TO) {
-                cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
+                // cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
                 sendConfirmationAsReponse(process, r);
               }
             } 
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;   
                
-            sleep(3);
+            sleep(2);
             if(process->position == 'K') {
               exitCriticalSection(process);
             }    
