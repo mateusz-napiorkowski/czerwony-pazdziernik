@@ -139,20 +139,19 @@ int main(int argc, char **argv) {
             //TODO synchronizuj czas
             if(recv_mess.messType == 1) {
               printf("%d got mess type %d from %d\n", rank, recv_mess.messType, recv_mess.rank);
-              // if(recv_mess.position == 'W') {
-                if(recv_mess.channel == channel) {
-                  if(recv_mess.T < T || (recv_mess.T == T && recv_mess.rank < rank)) {
-                    process_mess.messType = 2;
-                    MPI_Send(&process_mess, MSG_SIZE, message, recv_mess.rank, 1, MPI_COMM_WORLD);
-                  } else {
-                    //dodaj proces do TO
-                  }
-                } else {
+              if(recv_mess.channel == channel) {
+                if(recv_mess.T < T || (recv_mess.T == T && recv_mess.rank < rank)) {
                   process_mess.messType = 2;
                   MPI_Send(&process_mess, MSG_SIZE, message, recv_mess.rank, 1, MPI_COMM_WORLD);
+                } else {
+                  //dodaj proces do TO
                 }
-              // }
+              } else {
+                process_mess.messType = 2;
+                MPI_Send(&process_mess, MSG_SIZE, message, recv_mess.rank, 1, MPI_COMM_WORLD);
+              }
             } else if(recv_mess.messType == 2) {
+              printf("%d got mess type %d from %d\n", rank, recv_mess.messType, recv_mess.rank);
               responseCounter++;
               printf("Rank: %d, responses: %d\n", rank, responseCounter);
             } else if(recv_mess.messType == 3) {
@@ -161,76 +160,12 @@ int main(int argc, char **argv) {
               // usun proces z tablicy procesów sekcji krytycznej
             }
           }
-//           while(responseCounter != K-1) {
-//             printf("%d IN A LOOP\n", rank);
-//             // //TODO zsynchronizuj czas
-
-//             // //czekanie na odpowiedzi/zgody od procesów
-//             // if(!pierwsza_zgoda) {
-//             //   MPI_Irecv(&zgoda, 1, MPI_INT, MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &request2);
-              
-//             // }
-//             // MPI_Test(&request2, &ready, MPI_STATUS_IGNORE);
-//             // if(ready) {
-//             //     pierwsza_zgoda = 1;
-//             //     ready = 0;
-//             //     if(zgoda == 1) {
-//             //       cout << "EEE" << endl;
-//             //       responseCounter++;
-//             //       cout << responseCounter << endl;
-//             //       //printf("recv -> rank : %d orzymal od %d w sekcji %c\n", rank, recv_mess.rank, process_mess.position);
-//             //       zgoda = 0;
-//             //     }
-//             //     if(responseCounter != K-1) {
-//             //       MPI_Irecv(&zgoda, 1, MPI_INT, MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &request);
-//             }
-//             // else
-//             //     printf("message not received yet.\n");
-            
-//             //czekanie na pytania od procesów
-//             //TODO zsynchronizuj czas
-//             // MPI_Irecv(&recv_mess, MSG_SIZE, message, MPI_ANY_SOURCE,
-//             //   1, MPI_COMM_WORLD, &request);
-//             // if(recv_mess.rank != -1) {
-//             //   if(recv_mess.position == 'W') {
-//             //     if(recv_mess.channel == channel) {
-//             //       if(recv_mess.T < T || (recv_mess.T == T && recv_mess.rank < rank)) {
-//             //         zgoda = 1;
-//             //         MPI_Send(&zgoda, 1, MPI_INT, recv_mess.rank, 2, MPI_COMM_WORLD );
-//             //         zgoda = 0;
-//             //       } else {
-//             //         //TODO dodaj proces do TO
-//             //       }  
-//             //     } else {
-//             //       zgoda = 1;
-//             //       MPI_Send(&zgoda, 1, MPI_INT, recv_mess.rank, 2, MPI_COMM_WORLD );
-//             //       zgoda = 0;
-//             //     }
-//             //   }
-//             //   recv_mess.rank = -1;
-//             // }
-//             // MPI_Irecv(&process_to_add, 1, MPI_INT, MPI_ANY_SOURCE,
-//             //     3, MPI_COMM_WORLD, &request);
-//             // if(process_to_add != -1) {
-//             //   //TODO dodaj proces do tablicy procesow sekcji krytycznej
-//             //   process_to_add = -1;
-//             // }
-//             // MPI_Irecv(&process_to_remove, 1, MPI_INT, MPI_ANY_SOURCE,
-//             //     4, MPI_COMM_WORLD, &request);
-//             // if(process_to_remove != -1) {
-//             //   //TODO usun proces z tablicy procesow sekcji krytycznej
-//             //   process_to_remove = -1;
-//             // }
-
-//           }
-//           position = K;
-//         };
-
-//         if(position == 'K'){
-          
-//         };
-
+          position = 'K';
         }
+        if(position == 'K'){
+          printf("Process %d is in a critical section\n", rank);
+          break;
+        }  
   };
 
   
@@ -241,7 +176,7 @@ int main(int argc, char **argv) {
   
 
 
-  std::cout << "Jestem " << rank << " z " << size << " na " << processor_name
-            << std::endl;
+  // std::cout << "Jestem " << rank << " z " << size << " na " << processor_name
+  //           << std::endl;
   MPI_Finalize();
 }
