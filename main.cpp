@@ -53,12 +53,7 @@ struct general_process_struct {
   int responseCounter;
   vector<int> kryt_tab;
   vector<int> TO;
-  vector<process_tz> TZ;
-};
-
-struct process_tz { 
-  int rank;
-  bool confirm;
+  vector<int> TZ;
 };
 
 typedef struct returnedMess {
@@ -126,12 +121,18 @@ typedef struct returnedMess {
     while(true){
       returnedMess recv_message = getMessage();
       if(recv_message.message_status.MPI_TAG == 0){
-        if(recv_message.message.)
+        if(recv_message.message.position == 'W'){
+          if(recv_message.message.channel == process->channel){
+            if(recv_message.message.T < process->T){
+              
+            }
+          }
+        }
 
-      }
+      };
       if(recv_message.message_status.MPI_TAG == 1){
 
-      }
+      };
 
     }
 
