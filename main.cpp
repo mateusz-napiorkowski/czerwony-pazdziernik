@@ -218,7 +218,7 @@ typedef struct returnedMess {
             // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
           }
 
-          if(process->responseCounter == K-1){
+          if(process->responseCounter == K-1 /*&& array[process->channel-1] > 0*/){
             cout<<"==================================="<<endl;
             cout<<"RANK : "<<process->rank<< " CAN GO TO CRITICAL SECTION"<<endl;
             cout<<"==================================="<<endl;
@@ -226,8 +226,10 @@ typedef struct returnedMess {
             process->position = 'K';
           }
       }
-      if( process->position == 'K' /*&& array[process->channel-1] > 0*/){
+      if( process->position == 'K'){
         if(process->position != savedPosition){
+            // process->kryt_tab[process->rank] = process->channel;
+
             // if(array[process-channel-1] > 0) {
             //   for(const auto& r: process->TO) {
             //     std::cout << r << "\n";
