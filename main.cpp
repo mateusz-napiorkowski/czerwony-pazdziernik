@@ -98,44 +98,90 @@ typedef struct returnedMess {
     return messageToReturn;
   }
 
+  void exitCriticalSection(general_process_struct* process){
+    sendRequestToAll(process, 3);
+    sleep(3);
+    sendRequestToAll(process, 1);  
+    process->status = !process->status;
+    process->channel = 0;
+    process->position = 'L';
+    process->responseCounter = 0;
+    cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
 
+  }
 
   void communicationThread(general_process_struct* process){
     while(true){
       returnedMess recv_message = getMessage(process);
-      if(recv_message.message_status.MPI_TAG == 0){
-        if(recv_message.message.position == 'W'){
-          if(recv_message.message.channel == process->channel){
-            if(recv_message.message.T < process->T){
-                cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
-                sendConfirmationAsReponse(process, recv_message.message.rank);
-            }else if(recv_message.message.T == process->T && recv_message.message.rank < process->rank){
-                cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
-                sendConfirmationAsReponse(process, recv_message.message.rank);
-            }else{
+      if(process->position == 'W') {
+        if(recv_message.message_status.MPI_TAG == 0){
+          if(recv_message.message.position == 'W'){
+            if(recv_message.message.channel == process->channel){
+              if(recv_message.message.T < process->T){
+                  cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                  sendConfirmationAsReponse(process, recv_message.message.rank);
+              }else if(recv_message.message.T == process->T && recv_message.message.rank < process->rank){
+                  cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                  sendConfirmationAsReponse(process, recv_message.message.rank);
+              }else{
+                cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
+                process->TO.push_back(recv_message.message.rank);
+              }
+            }
+            if(recv_message.message.channel != process->channel){
+              cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+              sendConfirmationAsReponse(process, recv_message.message.rank);
+            }
+          }
+
+        };
+        if(recv_message.message_status.MPI_TAG == 1){
+            cout<<"rank : "<<process->rank<<" increment responseCounter"<<endl;
+            process->responseCounter++;
+        };
+        if(recv_message.message_status.MPI_TAG == 2){
+            cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+            process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
+            // array[recv_message.message.channel-1]--;
+        };
+        if(recv_message.message_status.MPI_TAG == 3){
+            cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+            process->kryt_tab[recv_message.message.rank] = 0;
+            // array[recv_message.message.channel-1]++;
+        };
+      }
+      if(process->position == 'K') {
+        if(recv_message.message.position == 'W') {
+          if(recv_message.message.channel != process->channel) {
+            cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+            sendConfirmationAsReponse(process, recv_message.message.rank);
+          } else {
+            if(recv_message.message.status == process->status) {
+              cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+              sendConfirmationAsReponse(process, recv_message.message.rank); //???
+            } else {
               cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
               process->TO.push_back(recv_message.message.rank);
             }
           }
-          if(recv_message.message.channel != process->channel){
-            cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
-            sendConfirmationAsReponse(process, recv_message.message.rank);
-          }
         }
-
-      };
-      if(recv_message.message_status.MPI_TAG == 1){
-          cout<<"rank : "<<process->rank<<" increment responseCounter"<<endl;
-          process->responseCounter++;
-      };
-      if(recv_message.message_status.MPI_TAG == 2){
-          cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
-          process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
-      };
-      if(recv_message.message_status.MPI_TAG == 3){
-          cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
-          process->kryt_tab[recv_message.message.rank] = 0;
-      };
+        if(recv_message.message.position == 'K') {
+          if(recv_message.message_status.MPI_TAG == 3){
+            if(recv_message.message.channel == process->channel) {
+              exitCriticalSection(process);
+            } else {
+              cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+              process->kryt_tab[recv_message.message.rank] = 0;
+              // array[recv_message.message.channel-1]++;
+            }
+          }
+          if(recv_message.message_status.MPI_TAG == 2){
+            cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+            process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
+            // array[recv_message.message.channel-1]--;
+          };
+        }
+      }
 
     }
 
@@ -143,6 +189,8 @@ typedef struct returnedMess {
 
     
   };
+
+  
 
   void mainThread(general_process_struct* process){
     char savedPosition = 'c';
@@ -163,7 +211,7 @@ typedef struct returnedMess {
             savedPosition = process->position;
             process->channel = rand()%2 + 1;
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;
-            cout<<"rank : "<<process->rank<<"choseed chaneel" << process->channel<<endl;
+            cout<<"rank : "<<process->rank<<"chose channel" << process->channel<<endl;
             sleep(5);
             sendRequestToAll(process, 0);
 
@@ -171,26 +219,31 @@ typedef struct returnedMess {
             // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
           }
 
-          if(process->responseCounter == K-1){
+          if(process->responseCounter == K-1 /*&& array[process->channel-1] > 0*/){
             cout<<"==================================="<<endl;
             cout<<"RANK : "<<process->rank<< " CAN GO TO CRITICAL SECTION"<<endl;
             cout<<"==================================="<<endl;
+            // array[process->channel-1]--;
             process->position = 'K';
           }
       }
       if( process->position == 'K'){
         if(process->position != savedPosition){
-            cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;
-            process->responseCounter = 0;
+            // process->kryt_tab[process->rank] = process->channel;
+
+            // if(array[process-channel-1] > 0) {
+            //   for(const auto& r: process->TO) {
+            //     std::cout << r << "\n";
+            //     sendConfirmationAsReponse(process, r);
+            //   }
+            // } 
+            cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;       
             sleep(5);
             sendRequestToAll(process, 2);
             sleep(5);
-            sendRequestToAll(process, 3);
-            sleep(3);
-            sendRequestToAll(process, 1);
-            process->status = !process->status;
-            process->position = 'L';
-            // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
+            if(process->position == 'K') {
+              exitCriticalSection(process);
+            }    
           }
       }
     }
