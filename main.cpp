@@ -8,10 +8,10 @@
 #include<utility>
 #include<unistd.h>
 #define K 2
-#define PROCESS_COUNT 2
+#define PROCESS_COUNT 3
 #define MSG_SIZE 1
-#define changel_1 1
-#define changel_2 2
+
+int array[K] = {1,2};
 
 using namespace std;
 
@@ -53,10 +53,12 @@ typedef struct returnedMess {
   // TAGS: =================
   // request : 0
   // response yes : 1;
+  // notification MESSAGE_KANAL_IN: 2;
+  // notification MESSAGE_KANAL_OUT: 3;
   
   
 
-  void sendRequestToAll(general_process_struct* process){
+  void sendRequestToAll(general_process_struct* process, int status){
     mess process_mess;
     process_mess.channel = process->channel;
     process_mess.position = process->position;
@@ -66,7 +68,7 @@ typedef struct returnedMess {
     for(int i=0; i<PROCESS_COUNT; i++){
       if(process->rank != i){
         cout<<"rank : "<<process->rank<<" is sending request to "<< i << endl;
-        MPI_Send(&process_mess, sizeOfMess(), MPI_INT, i, 0, MPI_COMM_WORLD);
+        MPI_Send(&process_mess, sizeOfMess(), MPI_INT, i, status, MPI_COMM_WORLD);
       }
       
     }
@@ -126,6 +128,14 @@ typedef struct returnedMess {
           cout<<"rank : "<<process->rank<<"increment responseCounter"<<endl;
           process->responseCounter++;
       };
+      if(recv_message.message_status.MPI_TAG == 2){
+          cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+          process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
+      };
+      if(recv_message.message_status.MPI_TAG == 3){
+          cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+          process->kryt_tab[recv_message.message.rank] = 0;
+      };
 
     }
 
@@ -134,8 +144,6 @@ typedef struct returnedMess {
   };
 
   void mainThread(general_process_struct* process){
-    // cout<<"In main thread"<<endl;
-
     char savedPosition = 'c';
 
     while(true){
@@ -145,7 +153,6 @@ typedef struct returnedMess {
             savedPosition = process->position;
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;
             sleep(5);
-            cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
             process->position = 'W';
           }
           
@@ -157,7 +164,7 @@ typedef struct returnedMess {
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;
             cout<<"rank : "<<process->rank<<"choseed chaneel" << process->channel<<endl;
             sleep(5);
-            sendRequestToAll(process);
+            sendRequestToAll(process, 0);
 
 
             // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
@@ -165,7 +172,7 @@ typedef struct returnedMess {
 
           if(process->responseCounter == K-1){
             cout<<"==================================="<<endl;
-            cout<<"RANK : "<<process->rank<< "CAN GO TO CRITICAL SECTION"<<endl;
+            cout<<"RANK : "<<process->rank<< " CAN GO TO CRITICAL SECTION"<<endl;
             cout<<"==================================="<<endl;
             process->position = 'K';
           }
@@ -174,6 +181,7 @@ typedef struct returnedMess {
         if(process->position != savedPosition){
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;
             sleep(5);
+            sendRequestToAll(process, 2);
 
             // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
           }
@@ -197,6 +205,10 @@ int main(int argc, char **argv) {
   vector<int> kryt_tab;
   vector<int> TO;
   vector<int> TZ;
+
+  for(int i=0; i<PROCESS_COUNT; i++){
+    kryt_tab.push_back(0);
+  }
   char processor_name[MPI_MAX_PROCESSOR_NAME];
   int namelen;
 
