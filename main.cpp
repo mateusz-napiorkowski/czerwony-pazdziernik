@@ -123,6 +123,7 @@ int main(int argc, char **argv) {
           if(isPositionChanged){
             channel = rand()% K + 1;
 
+            process_mess.messType = 1;
             process_mess.channel = channel;
             process_mess.position = position;
             printf("GOT HERE\n");
@@ -139,15 +140,26 @@ int main(int argc, char **argv) {
             //TODO synchronizuj czas
             if(recv_mess.messType == 1) {
               printf("%d got mess type %d from %d\n", rank, recv_mess.messType, recv_mess.rank);
-              if(recv_mess.position == 'W') {
-                
-              }
+              // if(recv_mess.position == 'W') {
+                if(recv_mess.channel == channel) {
+                  if(recv_mess.T < T || (recv_mess.T == T && recv_mess.rank < rank)) {
+                    process_mess.messType = 2;
+                    MPI_Send(&process_mess, MSG_SIZE, message, recv_mess.rank, 1, MPI_COMM_WORLD);
+                  } else {
+                    //dodaj proces do TO
+                  }
+                } else {
+                  process_mess.messType = 2;
+                  MPI_Send(&process_mess, MSG_SIZE, message, recv_mess.rank, 1, MPI_COMM_WORLD);
+                }
+              // }
             } else if(recv_mess.messType == 2) {
-              
+              responseCounter++;
+              printf("Rank: %d, responses: %d\n", rank, responseCounter);
             } else if(recv_mess.messType == 3) {
-              
+              // dodaj proces do tablicy procesów sekcji krytycznej
             } else if(recv_mess.messType == 4) {
-              
+              // usun proces z tablicy procesów sekcji krytycznej
             }
           }
 //           while(responseCounter != K-1) {
