@@ -9,12 +9,18 @@
 #include<utility>
 #include<unistd.h>
 #define K 2
-#define PROCESS_COUNT 3
+#define PROCESS_COUNT 4
 #define MSG_SIZE 1
 
 int channels[K] = {1, 2};
 
 
+const std::string red("\033[0;31m");
+const std::string green("\033[1;32m");
+const std::string yellow("\033[1;33m");
+const std::string cyan("\033[0;36m");
+const std::string magenta("\033[0;35m");
+const std::string reset("\033[0m");
 
 using namespace std;
 
@@ -119,11 +125,11 @@ typedef struct returnedMess {
     channels[process->channel-1]++;
     // sendRequestToAll(process, 1);
     for(const auto& r: process->TO) {
-      // cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
+      cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
       sendConfirmationAsReponse(process, r);
     }
     process->TO.clear();
-    cout<<"\033[2;43;30m"<<"RANK : "<<process->rank<<" GOING OUT FROM : "<<process->channel<<"\033[0m"<<endl;
+    cout<<red<<"RANK : "<<process->rank<<" GOING OUT FROM : "<<process->channel<<reset<<endl;
     sleep(1);
     process->status = !process->status;
     process->channel = 0;
@@ -146,11 +152,9 @@ typedef struct returnedMess {
             if(recv_message.message.channel == process->channel){
               if(recv_message.message.T < process->T){
                   // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
-                  sleep(1);
                   sendConfirmationAsReponse(process, recv_message.message.rank);
               }else if(recv_message.message.T == process->T && recv_message.message.rank < process->rank){
                   // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
-                  sleep(1);
                   sendConfirmationAsReponse(process, recv_message.message.rank);
               }else{
               
@@ -159,7 +163,6 @@ typedef struct returnedMess {
             }
             if(recv_message.message.channel != process->channel){
               // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
-              sleep(1);
               sendConfirmationAsReponse(process, recv_message.message.rank);
             }
           }
@@ -202,7 +205,7 @@ typedef struct returnedMess {
         if(recv_message.message.position == 'K') {
           if(recv_message.message_status.MPI_TAG == 3){
             if(recv_message.message.channel == process->channel) {
-              exitCriticalSection(process);
+              // exitCriticalSection(process);
             } else {
               
               process->kryt_tab[recv_message.message.rank] = 0;
