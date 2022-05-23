@@ -2,23 +2,23 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <vector>
+#include<mutex>
 #include <thread>
 #include<chrono>
 #include <future>
 #include<utility>
 #include<unistd.h>
-#define K 2
-#define PROCESS_COUNT 3
+#define K 1
+#define PROCESS_COUNT 2
 #define MSG_SIZE 1
-#define NC "\e[0m"
-#define RED "\e[0;31m"
-#define GRN "\e[0;32m"
-#define CYN "\e[0;36m"
-#define REDB "\e[41m"
 
-int channels[K] = {1,2};
+int channels[K] = {1};
+
+
 
 using namespace std;
+
+mutex rc_mutex;
 
 typedef struct mess {
   int position;
@@ -61,7 +61,17 @@ typedef struct returnedMess {
   // notification MESSAGE_KANAL_IN: 2;
   // notification MESSAGE_KANAL_OUT: 3;
   
-  
+  void incrementResponseCounter(general_process_struct* process){
+    lock_guard<mutex> lock(rc_mutex);
+    process->responseCounter++;
+    cout<<"rank : "<<process->rank<<" increment RESPONSE COUNTER to "<<process->responseCounter<<endl;
+  }
+
+  void clearResponseCounter(general_process_struct* process){
+    lock_guard<mutex> lock(rc_mutex);
+    process->responseCounter = 0;
+    cout<<"rank : "<<process->rank<<" RESPONSE COUNTER equals to "<<process->responseCounter<<endl;
+  }
 
   void sendRequestToAll(general_process_struct* process, int status){
     mess process_mess;
@@ -74,6 +84,7 @@ typedef struct returnedMess {
     for(int i=0; i<PROCESS_COUNT; i++){
       if(process->rank != i){
         cout<<"rank : "<<process->rank<<" is sending request to "<< i <<" with tag "<<status<<endl;
+        sleep(1);
         MPI_Isend(&process_mess, sizeOfMess(), MPI_INT, i, status, MPI_COMM_WORLD, &request);
       }
       
@@ -106,8 +117,8 @@ typedef struct returnedMess {
 
   void exitCriticalSection(general_process_struct* process){
     sendRequestToAll(process, 3);
-    sleep(2);
-    sendRequestToAll(process, 1);  
+    channels[process->channel-1]++;
+    // sendRequestToAll(process, 1);  
     process->status = !process->status;
     process->channel = 0;
     process->position = 'L';
@@ -125,9 +136,11 @@ typedef struct returnedMess {
             if(recv_message.message.channel == process->channel){
               if(recv_message.message.T < process->T){
                   cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                  sleep(1);
                   sendConfirmationAsReponse(process, recv_message.message.rank);
               }else if(recv_message.message.T == process->T && recv_message.message.rank < process->rank){
                   cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                  sleep(1);
                   sendConfirmationAsReponse(process, recv_message.message.rank);
               }else{
                 // cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
@@ -136,14 +149,15 @@ typedef struct returnedMess {
             }
             if(recv_message.message.channel != process->channel){
               cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+              sleep(1);
               sendConfirmationAsReponse(process, recv_message.message.rank);
             }
           }
 
         };
         if(recv_message.message_status.MPI_TAG == 1){
-            cout<<"rank : "<<process->rank<<" increment responseCounter"<<endl;
-            process->responseCounter++;
+            incrementResponseCounter(process);
+            sleep(1);
         };
         if(recv_message.message_status.MPI_TAG == 2){
             // cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
@@ -160,10 +174,12 @@ typedef struct returnedMess {
         if(recv_message.message.position == 'W') {
           if(recv_message.message.channel != process->channel) {
             cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+            sleep(1);
             sendConfirmationAsReponse(process, recv_message.message.rank);
           } else {
             if(recv_message.message.status == process->status) {
               cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+              sleep(1);
               sendConfirmationAsReponse(process, recv_message.message.rank);
             } else {
               // cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
@@ -218,7 +234,7 @@ typedef struct returnedMess {
             sleep(rand()%3+1);
             process->channel = (((rand()%2+1) + process->rank)%K)+1;
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position <<" and chose channel " << process->channel<<endl;
-            sleep(2);
+            sleep(1);
             sendRequestToAll(process, 0);
 
 
@@ -226,7 +242,8 @@ typedef struct returnedMess {
           }
 
           if(process->responseCounter == PROCESS_COUNT-1 && channels[process->channel -1] > 0){
-            cout<<"\033[3;43;30m"<<"RANK : "<<process->rank<< " IS GOING TO CRITICAL SECTION "<<"\033[0m\t\t"<<endl;
+            cout<<"\033[3;43;30m"<<"RANK : "<<process->rank<< " IS GOING TO CRITICAL SECTION to CHANNEL "<<process->channel<<"\033[0m\t\t"<<endl;
+            sleep(1);
             channels[process->channel-1]--;
             process->position = 'K';
           }
@@ -238,13 +255,15 @@ typedef struct returnedMess {
             sendRequestToAll(process, 2); 
             if(channels[process->channel-1] > 0) {
               for(const auto& r: process->TO) {
-                // cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
+                cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
                 sendConfirmationAsReponse(process, r);
               }
             } 
+            process->TO.clear();
+            clearResponseCounter(process);
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;   
-               
-            sleep(2);
+            sleep(rand()%10 + 2);
+            // sendRequestToAll(process, 3);
             if(process->position == 'K') {
               exitCriticalSection(process);
             }    
