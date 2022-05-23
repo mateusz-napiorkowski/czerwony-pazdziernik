@@ -8,11 +8,11 @@
 #include <future>
 #include<utility>
 #include<unistd.h>
-#define K 1
-#define PROCESS_COUNT 2
+#define K 2
+#define PROCESS_COUNT 3
 #define MSG_SIZE 1
 
-int channels[K] = {1};
+int channels[K] = {1, 2};
 
 
 
@@ -64,13 +64,13 @@ typedef struct returnedMess {
   void incrementResponseCounter(general_process_struct* process){
     lock_guard<mutex> lock(rc_mutex);
     process->responseCounter++;
-    cout<<"rank : "<<process->rank<<" increment RESPONSE COUNTER to "<<process->responseCounter<<endl;
+    // cout<<"rank : "<<process->rank<<" increment RESPONSE COUNTER to "<<process->responseCounter<<endl;
   }
 
   void clearResponseCounter(general_process_struct* process){
     lock_guard<mutex> lock(rc_mutex);
     process->responseCounter = 0;
-    cout<<"rank : "<<process->rank<<" RESPONSE COUNTER equals to "<<process->responseCounter<<endl;
+    // cout<<"rank : "<<process->rank<<" RESPONSE COUNTER equals to "<<process->responseCounter<<endl;
   }
 
   void sendRequestToAll(general_process_struct* process, int status){
@@ -83,7 +83,7 @@ typedef struct returnedMess {
     process_mess.T = process->T;
     for(int i=0; i<PROCESS_COUNT; i++){
       if(process->rank != i){
-        cout<<"rank : "<<process->rank<<" is sending request to "<< i <<" with tag "<<status<<endl;
+        // cout<<"rank : "<<process->rank<<" is sending request to "<< i <<" with tag "<<status<<endl;
         sleep(1);
         MPI_Isend(&process_mess, sizeOfMess(), MPI_INT, i, status, MPI_COMM_WORLD, &request);
       }
@@ -109,7 +109,6 @@ typedef struct returnedMess {
 
     MPI_Recv(&recv_mess, sizeOfMess() , MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_status);
 
-    // cout<<"rank : "<<process->rank<<" got message recv from : "<<recv_mess.rank <<" with tag " << mpi_status.MPI_TAG<<endl;
     messageToReturn.message = recv_mess;
     messageToReturn.message_status = mpi_status;
     return messageToReturn;
@@ -118,37 +117,48 @@ typedef struct returnedMess {
   void exitCriticalSection(general_process_struct* process){
     sendRequestToAll(process, 3);
     channels[process->channel-1]++;
-    // sendRequestToAll(process, 1);  
+    // sendRequestToAll(process, 1);
+    for(const auto& r: process->TO) {
+      // cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
+      sendConfirmationAsReponse(process, r);
+    }
+    process->TO.clear();
+    cout<<"\033[2;43;30m"<<"RANK : "<<process->rank<<" GOING OUT FROM : "<<process->channel<<"\033[0m"<<endl;
+    sleep(1);
     process->status = !process->status;
     process->channel = 0;
     process->position = 'L';
     process->responseCounter = 0;
-    // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
 
   }
 
   void communicationThread(general_process_struct* process){
     while(true){
       returnedMess recv_message = getMessage(process);
+      if(process->position == 'L'){
+        if(recv_message.message_status.MPI_TAG == 0){
+          sendConfirmationAsReponse(process, recv_message.message.rank);
+        }
+      }
       if(process->position == 'W') {
         if(recv_message.message_status.MPI_TAG == 0){
           if(recv_message.message.position == 'W'){
             if(recv_message.message.channel == process->channel){
               if(recv_message.message.T < process->T){
-                  cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                  // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
                   sleep(1);
                   sendConfirmationAsReponse(process, recv_message.message.rank);
               }else if(recv_message.message.T == process->T && recv_message.message.rank < process->rank){
-                  cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                  // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
                   sleep(1);
                   sendConfirmationAsReponse(process, recv_message.message.rank);
               }else{
-                // cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
+              
                 process->TO.push_back(recv_message.message.rank);
               }
             }
             if(recv_message.message.channel != process->channel){
-              cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+              // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
               sleep(1);
               sendConfirmationAsReponse(process, recv_message.message.rank);
             }
@@ -160,12 +170,11 @@ typedef struct returnedMess {
             sleep(1);
         };
         if(recv_message.message_status.MPI_TAG == 2){
-            // cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+            
             process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
             channels[recv_message.message.channel-1]--;
         };
         if(recv_message.message_status.MPI_TAG == 3){
-            // cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
             process->kryt_tab[recv_message.message.rank] = 0;
             channels[recv_message.message.channel-1]++;
         };
@@ -173,16 +182,19 @@ typedef struct returnedMess {
       if(process->position == 'K') {
         if(recv_message.message.position == 'W') {
           if(recv_message.message.channel != process->channel) {
-            cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
-            sleep(1);
+            // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+
             sendConfirmationAsReponse(process, recv_message.message.rank);
-          } else {
-            if(recv_message.message.status == process->status) {
-              cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
-              sleep(1);
-              sendConfirmationAsReponse(process, recv_message.message.rank);
-            } else {
-              // cout<<"rank : "<< process->rank<<" [ push to TO array ] --> " <<recv_message.message.rank<<endl;
+          } 
+          if(recv_message.message.channel == process->channel){
+            if(recv_message.message.status == process->status){
+              if(channels[process->channel-1] > 0){
+                // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                sendConfirmationAsReponse(process, recv_message.message.rank);
+              }else{
+                process->TO.push_back(recv_message.message.rank);
+              }
+            }else{
               process->TO.push_back(recv_message.message.rank);
             }
           }
@@ -192,13 +204,12 @@ typedef struct returnedMess {
             if(recv_message.message.channel == process->channel) {
               exitCriticalSection(process);
             } else {
-              // cout<<"rank : "<<process->rank<<" remove process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
+              
               process->kryt_tab[recv_message.message.rank] = 0;
               channels[recv_message.message.channel-1]++;
             }
           }
           if(recv_message.message_status.MPI_TAG == 2){
-            // cout<<"rank : "<<process->rank<<" add process "<< recv_message.message.rank<<" to kryt_tab"<<endl;
             process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
             channels[recv_message.message.channel-1]--;
           };
@@ -237,8 +248,6 @@ typedef struct returnedMess {
             sleep(1);
             sendRequestToAll(process, 0);
 
-
-            // cout<<"rank : "<<process->rank<<" is going out from "<<process->position<<endl;
           }
 
           if(process->responseCounter == PROCESS_COUNT-1 && channels[process->channel -1] > 0){
@@ -255,11 +264,11 @@ typedef struct returnedMess {
             sendRequestToAll(process, 2); 
             if(channels[process->channel-1] > 0) {
               for(const auto& r: process->TO) {
-                cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
+                // cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
                 sendConfirmationAsReponse(process, r);
               }
+              process->TO.clear();
             } 
-            process->TO.clear();
             clearResponseCounter(process);
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;   
             sleep(rand()%10 + 2);
