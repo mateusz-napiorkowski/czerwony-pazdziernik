@@ -9,10 +9,10 @@
 #include<utility>
 #include<unistd.h>
 #define K 2
-#define PROCESS_COUNT 4
+#define PROCESS_COUNT 3
 #define MSG_SIZE 1
 
-int channels[K] = {1, 2};
+int channels[K] = {1, 1};
 
 
 const std::string red("\033[0;31m");
@@ -70,13 +70,13 @@ typedef struct returnedMess {
   void incrementResponseCounter(general_process_struct* process){
     lock_guard<mutex> lock(rc_mutex);
     process->responseCounter++;
-    cout<<"rank : "<<process->rank<<" increment RESPONSE COUNTER to "<<process->responseCounter<<endl;
+    // cout<<"rank : "<<process->rank<<" increment RESPONSE COUNTER to "<<process->responseCounter<<endl;
   }
 
   void clearResponseCounter(general_process_struct* process){
     lock_guard<mutex> lock(rc_mutex);
     process->responseCounter = 0;
-    cout<<"rank : "<<process->rank<<" RESPONSE COUNTER equals to "<<process->responseCounter<<endl;
+    // cout<<"rank : "<<process->rank<<" RESPONSE COUNTER equals to "<<process->responseCounter<<endl;
   }
 
   void incrementTime(general_process_struct* process){
@@ -102,7 +102,7 @@ typedef struct returnedMess {
     process_mess.T = process->T;
     for(int i=0; i<PROCESS_COUNT; i++){
       if(process->rank != i){
-        cout<<"rank : "<<process->rank<<" is sending request to "<< i <<" with tag "<<status<<" time : "<< process->T<<endl;
+        // cout<<"rank : "<<process->rank<<" is sending request to "<< i <<" with tag "<<status<<" time : "<< process->T<<endl;
         sleep(1);
         MPI_Isend(&process_mess, sizeOfMess(), MPI_INT, i, status, MPI_COMM_WORLD, &request);
       }
@@ -128,7 +128,6 @@ typedef struct returnedMess {
     MPI_Status mpi_status;
 
     MPI_Recv(&recv_mess, sizeOfMess() , MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &mpi_status);
-    synchronizeTime(process, recv_mess);
     messageToReturn.message = recv_mess;
     messageToReturn.message_status = mpi_status;
     return messageToReturn;
@@ -139,7 +138,7 @@ typedef struct returnedMess {
     channels[process->channel-1]++;
     // sendRequestToAll(process, 1);
     for(const auto& r: process->TO) {
-      cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
+      // cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
       sendConfirmationAsReponse(process, r);
     }
     process->TO.clear();
@@ -159,16 +158,17 @@ typedef struct returnedMess {
         if(recv_message.message_status.MPI_TAG == 0){
           sendConfirmationAsReponse(process, recv_message.message.rank);
         }
+        synchronizeTime(process, recv_message.message);
       }
       if(process->position == 'W') {
         if(recv_message.message_status.MPI_TAG == 0){
           if(recv_message.message.position == 'W'){
             if(recv_message.message.channel == process->channel){
               if(recv_message.message.T < process->T){
-                  cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                  // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
                   sendConfirmationAsReponse(process, recv_message.message.rank);
               }else if(recv_message.message.T == process->T && recv_message.message.rank < process->rank){
-                  cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                  // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
                   sendConfirmationAsReponse(process, recv_message.message.rank);
               }else{
               
@@ -176,7 +176,7 @@ typedef struct returnedMess {
               }
             }
             if(recv_message.message.channel != process->channel){
-              cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+              // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
               sendConfirmationAsReponse(process, recv_message.message.rank);
             }
           }
@@ -195,18 +195,19 @@ typedef struct returnedMess {
             process->kryt_tab[recv_message.message.rank] = 0;
             channels[recv_message.message.channel-1]++;
         };
+        synchronizeTime(process, recv_message.message);
       }
       if(process->position == 'K') {
         if(recv_message.message.position == 'W') {
           if(recv_message.message.channel != process->channel) {
-            cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+            // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
 
             sendConfirmationAsReponse(process, recv_message.message.rank);
           } 
           if(recv_message.message.channel == process->channel){
             if(recv_message.message.status == process->status){
               if(channels[process->channel-1] > 0){
-                cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
+                // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
                 sendConfirmationAsReponse(process, recv_message.message.rank);
               }else{
                 process->TO.push_back(recv_message.message.rank);
@@ -230,9 +231,10 @@ typedef struct returnedMess {
             process->kryt_tab[recv_message.message.rank] = recv_message.message.channel;
             channels[recv_message.message.channel-1]--;
           };
+          
         }
+        synchronizeTime(process, recv_message.message);
       }
-
     }
 
   
@@ -277,17 +279,17 @@ typedef struct returnedMess {
       if( process->position == 'K'){
         if(process->position != savedPosition){
             savedPosition = process->position;
+            cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;   
             process->kryt_tab[process->rank] = process->channel;
             sendRequestToAll(process, 2); 
             if(channels[process->channel-1] > 0) {
               for(const auto& r: process->TO) {
-                cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
+                // cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
                 sendConfirmationAsReponse(process, r);
               }
               process->TO.clear();
             } 
-            clearResponseCounter(process);
-            cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;   
+            clearResponseCounter(process);  
             sleep(rand()%10 + 2);
             // sendRequestToAll(process, 3);
             if(process->position == 'K') {
