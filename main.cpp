@@ -8,12 +8,14 @@
 #include <future>
 #include<utility>
 #include<unistd.h>
+#include<climits>
 #define K 1
 #define PROCESS_COUNT 3
 #define MSG_SIZE 1
 
 int channels[K] = {1};
-
+int maxTime = INT_MAX;
+bool canIncrementTime = true;
 
 const std::string red("\033[0;31m");
 const std::string green("\033[1;32m");
@@ -87,7 +89,7 @@ typedef struct returnedMess {
 
   void synchronizeTime(general_process_struct* process, mess recv_process){
     lock_guard<mutex> lock(rc_mutex);
-    process->T = process->T + 1;
+    // process->T = process->T + 1;
     if(process->T < recv_process.T){
       process->T = recv_process.T;
     }
@@ -96,7 +98,7 @@ typedef struct returnedMess {
   void sendRequestToAll(general_process_struct* process, int status){
     mess process_mess;
     MPI_Request request;
-    incrementTime(process);
+    // incrementTime(process);
     process_mess.channel = process->channel;
     process_mess.position = process->position;
     process_mess.rank = process->rank;
@@ -115,7 +117,7 @@ typedef struct returnedMess {
 
   void sendConfirmationAsReponse(general_process_struct* process, int dest_rank){
     mess process_mess;
-    incrementTime(process);
+    // incrementTime(process);
     process_mess.channel = process->channel;
     process_mess.position = process->position;
     process_mess.rank = process->rank;
@@ -150,6 +152,8 @@ typedef struct returnedMess {
       sendConfirmationAsReponse(process, r);
     }
     process->TO.clear();
+    canIncrementTime = true;
+    maxTime = INT_MAX;
   }
 
   void communicationThread(general_process_struct* process){
@@ -157,18 +161,20 @@ typedef struct returnedMess {
       returnedMess recv_message = getMessage(process);
       if(process->position == 'L'){
         if(recv_message.message_status.MPI_TAG == 0){
+          synchronizeTime(process, recv_message.message);
           sendConfirmationAsReponse(process, recv_message.message.rank);
         }
-        synchronizeTime(process, recv_message.message);
+        // synchronizeTime(process, recv_message.message);
       }
       if(process->position == 'W') {
         if(recv_message.message_status.MPI_TAG == 0){
+          synchronizeTime(process, recv_message.message);
           if(recv_message.message.position == 'W'){
             if(recv_message.message.channel == process->channel){
-              if(recv_message.message.T < process->T){
+              if(recv_message.message.T < maxTime){
                   // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
                   sendConfirmationAsReponse(process, recv_message.message.rank);
-              }else if(recv_message.message.T == process->T && recv_message.message.rank < process->rank){
+              }else if(recv_message.message.T == maxTime && recv_message.message.rank < process->rank){
                   // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
                   sendConfirmationAsReponse(process, recv_message.message.rank);
               }else{
@@ -198,10 +204,11 @@ typedef struct returnedMess {
             process->kryt_tab[recv_message.message.rank] = 0;
             sleep(3);
         };
-        synchronizeTime(process, recv_message.message);
+        // synchronizeTime(process, recv_message.message);
       }
       if(process->position == 'K') {
         if(recv_message.message.position == 'W') {
+          synchronizeTime(process, recv_message.message);
           if(recv_message.message.channel != process->channel) {
             // cout<<"rank : "<< process->rank<<" [ confirmation ] --> " <<recv_message.message.rank<<endl;
 
@@ -236,7 +243,7 @@ typedef struct returnedMess {
           };
           
         }
-        synchronizeTime(process, recv_message.message);
+        // synchronizeTime(process, recv_message.message);
       }
     }
 
@@ -251,9 +258,14 @@ typedef struct returnedMess {
     char savedPosition = 'c';
 
     while(true){
-
-      if(process->position == 'L'){
+      if(process->position == 'L'){ 
           if(process->position != savedPosition){
+            if(canIncrementTime) {
+              incrementTime(process);   
+              maxTime = process->T;
+              cout<<"rank : "<<process->rank<< " Time: " << process->T << endl;
+              canIncrementTime = false;
+            }
             savedPosition = process->position;
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<" with status : " << process->status <<endl;
             sleep(rand()%4+2);
@@ -266,7 +278,7 @@ typedef struct returnedMess {
             savedPosition = process->position;
             sleep(rand()%3+1);
             process->channel = (((rand()%2+1) + process->rank)%K)+1;
-            cout<<"rank : "<<process->rank<<" is in position : "<<process->position <<" and chose channel " << process->channel<<endl;
+            // cout<<"rank : "<<process->rank<<" is in position : "<<process->position <<" and chose channel " << process->channel<<endl;
             sleep(1);
             sendRequestToAll(process, 0);
           }
@@ -286,13 +298,13 @@ typedef struct returnedMess {
             cout<<"rank : "<<process->rank<<" is in position : "<<process->position<<endl;   
             process->kryt_tab[process->rank] = process->channel;
             sleep(rand()%10 + 5);
-            if(channels[process->channel-1] > 0) {
+            // if(channels[process->channel-1] > 0) {
               for(const auto& r: process->TO) {
                 // cout<<"[ TO ] ==> rank : "<<process->rank<<" send tag 1 to "<<r<<endl;
                 sendConfirmationAsReponse(process, r);
               }
               process->TO.clear();
-            } 
+            // } 
             clearResponseCounter(process);  
             if(process->position == 'K') {
               exitCriticalSection(process);
